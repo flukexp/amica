@@ -39,6 +39,7 @@ type TTSJob = {
 }
 
 export class Chat {
+  private static instance: Chat;
   public initialized: boolean;
 
   public amicaLife?: AmicaLife;
@@ -93,6 +94,13 @@ export class Chat {
     this.currentStreamIdx = 0;
 
     this.lastAwake = 0;
+  }
+
+  public static getInstance(): Chat {
+    if (!Chat.instance) {
+      Chat.instance = new Chat();
+    }
+    return Chat.instance;
   }
 
   public initialize(
