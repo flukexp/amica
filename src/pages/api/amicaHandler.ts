@@ -1,72 +1,156 @@
-import { Chat } from '@/features/chat/chat';
-import askLLM from '@/utils/askLlm';
+import { openaiWhisper } from '@/features/openaiWhisper/openaiWhisper';
+import { whispercpp } from '@/features/whispercpp/whispercpp';
+import { askVisionLLM, askLLM } from '@/utils/askLlm';
+import { storedSubconcious, TimestampedPrompt } from '@/features/amicaLife/eventHandler';
+import { config } from '@/utils/config';
+
+import { randomBytes } from 'crypto';
+import sharp from 'sharp';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface ApiResponse {
+  sessionId?: string;
   outputType?: string;
-  response?: string;
+  response?: string | TimestampedPrompt[];
   error?: string;
 }
 
-const chat = Chat.getInstance();
+const generateSessionId = (sessionId?: string) => sessionId || randomBytes(8).toString('hex');
 
+// Helper for setting error responses
+const sendError = (res: NextApiResponse<ApiResponse>, sessionId: string, message: string, status = 400) => 
+  res.status(status).json({ sessionId, error: message });
+
+let dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
+dataHandlerUrl.searchParams.append('type', 'subconscious');
+
+// Main API handler
 export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse>) {
-  const apiEnabled = process.env.API_ENABLED === 'true';
-  if (!apiEnabled) {
-    return res.status(503).json({ error: "API is currently disabled." });
+  if (process.env.API_ENABLED !== 'true') {
+    return sendError(res, "", "API is currently disabled.", 503);
   }
 
-  const { inputType, payload } = req.body as { inputType: string; payload: any };
+  const { sessionId, inputType, noProcessChat = false, payload } = req.body;
+  const currentSessionId = generateSessionId(sessionId);
 
   if (!inputType || !payload) {
-    return res.status(400).json({ error: "inputType and payload are required." });
+    return sendError(res, currentSessionId, "inputType and payload are required.");
   }
 
-  switch (inputType) {
-    case "Normal Chat Message":
-      // Process normally and stream response
-      const result = await askLLM("Respond with emotional","Hello, Nice to meet you", null);
-      return res.status(200).json({ outputType: "Complete stream", response: `Processed ChatMessage: ${result}` });
+  let response: string | undefined | TimestampedPrompt[];
+  let outputType: string | undefined;
 
-    case "Voice":
-      // Transcribe voice input to words
-      return res.json({ outputType: "Text", response: "Transcribed Voice into Words" });
+  try {
+    switch (inputType) {
+      case "Normal Chat Message":
+        response = await processNormalChat(payload);
+        outputType = "Complete stream";
+        break;
 
-    case "Twitter Message":
-      // Skip processing, return as-is
-      return res.json({ outputType: "Text", response: "Twitter Message received" });
+      case "Voice":
+        response = await transcribeVoice(payload);
+        outputType = "Text";
+        break;
 
-    case "Brain Message":
-      // Skip processing, return as-is
-      return res.json({ outputType: "Text", response: "Brain Message received" });
+      case "Twitter Message":
+      case "Brain Message":
+        response = payload; // Direct return
+        outputType = "Text";
+        break;
 
-    case "Image":
-      // Process using Vision Model
-      return res.json({ outputType: "Text", response: "Image transcribed into words" });
+      case "Image":
+        response = await processImage(payload);
+        outputType = "Text";
+        break;
 
-    case "Memory Request":
-      // Return memory array from subconscious subroutines (placeholder for actual memory data)
-      return res.json({ outputType: "Memory Array", response: "Memory data from subconscious subroutines" });
+      case "Memory Request":
+        response = await requestMemory();
+        outputType = "Memory Array";
+        break;
 
-    case "RPC Webhook":
-      // Send all outputs to the client requesting the webhook
-      // Assuming a mocked function `sendToClient` for demonstration
-      sendToClient({ output: `All outputs to client: ${JSON.stringify(payload)}` });
-      return res.json({ outputType: "Webhook", response: "RPC webhook triggered" });
+      case "RPC Webhook":
+        sendToClient({ output: `All outputs to client: ${JSON.stringify(payload)}` });
+        outputType = "Webhook";
+        response = "RPC webhook triggered";
+        break;
 
-    case "Reasoning Server":
-      // Trigger actions based on inputs from the reasoning server
-      const { json, textStream, animation, normal, tg, twitter } = payload;
-      // Trigger AMICA to perform actions based on these flags (this would interface with AMICA directly)
-      return res.json({ outputType: "Action Triggered", response: `Actions triggered with flags: ${JSON.stringify(payload)}` });
+      case "Reasoning Server":
+        triggerAmicaActions(payload);
+        outputType = "Action Triggered";
+        response = `Actions triggered with flags: ${JSON.stringify(payload)}`;
+        break;
 
-    default:
-      return res.status(400).json({ error: "Unknown input type." });
+      default:
+        return sendError(res, currentSessionId, "Unknown input type.");
+    }
+
+    res.status(200).json({ sessionId: currentSessionId, outputType, response });
+  } catch (error) {
+    console.error("Handler error:", error);
+    return sendError(res, currentSessionId, "An error occurred while processing the request.", 500);
   }
+}
+
+// Function to process Normal Chat Message
+async function processNormalChat(message: string): Promise<string> {
+  return await askLLM("Respond with emotional", message, null);
+}
+
+// Transcribe voice input to text
+async function transcribeVoice(audio: File): Promise<string> {
+    try {
+      switch (config("stt_backend")) {
+        case 'whisper_openai': {
+          const result = await openaiWhisper(audio);
+          return result?.text; // Assuming the transcription is in result.text
+        }
+        case 'whispercpp': {
+          const result = await whispercpp(audio);
+          return result?.text; // Assuming the transcription is in result.text
+        }
+        default:
+          throw new Error("Invalid STT backend configuration.");
+      }
+    } catch (error) {
+      console.error("Transcription error:", error);
+      throw new Error("Failed to transcribe audio.");
+    }
+}
+  
+
+// Process image using Vision LLM
+async function processImage(payload: any): Promise<string> {
+  const jpegImg = await convertToJpeg(payload);
+  if (!jpegImg) throw new Error("Failed to process image");
+  return await askVisionLLM(jpegImg);
+}
+
+// Convert image to JPEG and return as base64
+async function convertToJpeg(payload: any): Promise<string | null> {
+  try {
+    const jpegBuffer = await sharp(payload).jpeg().toBuffer();
+    return jpegBuffer.toString('base64');
+  } catch (error) {
+    console.error("Error converting image to .jpeg:", error);
+    return null;
+  }
+}
+
+async function requestMemory(): Promise<TimestampedPrompt[]> {
+    const data = await fetch(dataHandlerUrl);
+    const currentStoredSubconscious: TimestampedPrompt[] = await data.json();
+    return currentStoredSubconscious;
 }
 
 // Mock function to simulate sending data to client in case of a webhook
 function sendToClient(data: { output: string }) {
-  // In a real implementation, this would handle sending data to a client via webhook, WebSocket, etc.
   console.log("Sending data to client:", data.output);
 }
+
+// Function to trigger actions based on Reasoning Server flags
+function triggerAmicaActions(payload: any) {
+  const { json, textStream, animation, normal, tg, twitter } = payload;
+  console.log(`Triggering actions with flags: ${JSON.stringify({ json, textStream, animation, normal, tg, twitter })}`);
+}
+
+

@@ -99,9 +99,12 @@ function prefixed(key: string) {
 // Fetch configuration from the server
 let serverConfig: Record<string, string> | null = null;
 
+let dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
+dataHandlerUrl.searchParams.append('type', 'config');
+
 async function fetchServerConfig() {
   try {
-    const response = await fetch("http://localhost:3000/api/config");
+    const response = await fetch(dataHandlerUrl);
     if (response.ok) {
       serverConfig = await response.json();
     }
@@ -143,7 +146,7 @@ export function config(key: string): string {
 export function updateConfig(key: string, value: string) {
   if (serverConfig && serverConfig.hasOwnProperty(key)) {
     // Send the update to the server
-    fetch("http://localhost:3000/api/config", {
+    fetch(dataHandlerUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

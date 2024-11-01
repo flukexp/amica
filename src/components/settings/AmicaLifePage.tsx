@@ -83,7 +83,7 @@ export function AmicaLifePage({
     return (
         <BasicPage
             title={`${t("Amica Life")} ${t("Settings")}`}
-            description={`${t("Enables")} ${t("Semi-autonomous mode, includes animations, sleep, function calling, subconcious subroutine and self-prompting. (Experimental)")}`}
+            description={`${t("Enables")} ${t("Semi-autonomous mode, includes animations, sleep, function calling, subconscious subroutine and self-prompting. (Experimental)")}`}
         >
             <ul role="list" className="divide-y divide-gray-100 max-w-xs">
                 <li className="py-4">

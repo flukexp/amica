@@ -3,9 +3,9 @@ import { Chat } from "@/features/chat/chat";
 
 import { getEchoChatResponseStream } from "@/features/chat/echoChat";
 import { getOpenAiChatResponseStream } from "@/features/chat/openAiChat";
-import { getLlamaCppChatResponseStream } from "@/features/chat/llamaCppChat";
+import { getLlamaCppChatResponseStream, getLlavaCppChatResponse } from "@/features/chat/llamaCppChat";
 import { getWindowAiChatResponseStream } from "@/features/chat/windowAiChat";
-import { getOllamaChatResponseStream } from "@/features/chat/ollamaChat";
+import { getOllamaChatResponseStream, getOllamaVisionChatResponse } from "@/features/chat/ollamaChat";
 import { getKoboldAiChatResponseStream } from "@/features/chat/koboldAiChat";
 
 import { config } from "@/utils/config";
@@ -60,15 +60,15 @@ export async function askLLM(
   } catch (e: any) {
     const errMsg = `Error: ${e.toString()}`;
     console.error(errMsg);
-    alert.error("Failed to get subconcious subroutine response", errMsg);
+    alert.error("Failed to get subconscious subroutine response", errMsg);
     return errMsg;
   }
 
   const stream = streams[streams.length - 1];
   if (!stream) {
-    const errMsg = "Error: Null subconcious subroutine stream encountered.";
+    const errMsg = "Error: Null subconscious subroutine stream encountered.";
     console.error(errMsg);
-    alert.error("Null subconcious subroutine stream encountered", errMsg);
+    alert.error("Null subconscious subroutine stream encountered", errMsg);
     return errMsg;
   }
 
@@ -167,6 +167,43 @@ export async function askLLM(
   }
   chat !== null ? result = aiTextLog : result = receivedMessage;
   return result;
+}
+
+export async function askVisionLLM(
+  imageData: string,
+): Promise<string> {
+  try {
+    const visionBackend = config("vision_backend");
+
+    console.debug("vision_backend", visionBackend);
+
+    const messages: Message[] = [
+      { role: "system", content: config("vision_system_prompt") },
+      {
+        role: 'user',
+        content: "Describe the image as accurately as possible"
+      },
+    ];
+
+    let res = "";
+    if (visionBackend === "vision_llamacpp") {
+      res = await getLlavaCppChatResponse(messages, imageData);
+    } else if (visionBackend === "vision_ollama") {
+      res = await getOllamaVisionChatResponse(messages, imageData);
+    } else {
+      console.warn("vision_backend not supported", visionBackend);
+      return "vision_backend not supported";
+    }
+
+    let content =  `This is a picture I just took from my webcam (described between [[ and ]] ): [[${res}]] Please respond accordingly and as if it were just sent and as though you can see it.`
+    const result = await askLLM(config("system_prompt"),content,null);
+
+    return result;
+  } catch (e: any) {
+    console.error("getVisionResponse", e.toString());
+    // alert?.error("Failed to get vision response", e.toString());
+    return "Failed to get vision response";
+  }
 }
 
 export default askLLM;
