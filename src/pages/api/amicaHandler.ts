@@ -1,11 +1,7 @@
-import { openaiWhisper } from '@/features/openaiWhisper/openaiWhisper';
-import { whispercpp } from '@/features/whispercpp/whispercpp';
-import { askVisionLLM, askLLM } from '@/utils/askLlm';
-import { storedSubconcious, TimestampedPrompt } from '@/features/amicaLife/eventHandler';
-import { config } from '@/utils/config';
+import { askLLM } from '@/utils/askLlm';
+import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 
 import { randomBytes } from 'crypto';
-import sharp from 'sharp';
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface ApiResponse {
@@ -47,19 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         outputType = "Complete stream";
         break;
 
-      case "Voice":
-        response = await transcribeVoice(payload);
-        outputType = "Text";
-        break;
-
       case "Twitter Message":
       case "Brain Message":
         response = payload; // Direct return
-        outputType = "Text";
-        break;
-
-      case "Image":
-        response = await processImage(payload);
         outputType = "Text";
         break;
 
@@ -96,46 +82,6 @@ async function processNormalChat(message: string): Promise<string> {
   return await askLLM("Respond with emotional", message, null);
 }
 
-// Transcribe voice input to text
-async function transcribeVoice(audio: File): Promise<string> {
-    try {
-      switch (config("stt_backend")) {
-        case 'whisper_openai': {
-          const result = await openaiWhisper(audio);
-          return result?.text; // Assuming the transcription is in result.text
-        }
-        case 'whispercpp': {
-          const result = await whispercpp(audio);
-          return result?.text; // Assuming the transcription is in result.text
-        }
-        default:
-          throw new Error("Invalid STT backend configuration.");
-      }
-    } catch (error) {
-      console.error("Transcription error:", error);
-      throw new Error("Failed to transcribe audio.");
-    }
-}
-  
-
-// Process image using Vision LLM
-async function processImage(payload: any): Promise<string> {
-  const jpegImg = await convertToJpeg(payload);
-  if (!jpegImg) throw new Error("Failed to process image");
-  return await askVisionLLM(jpegImg);
-}
-
-// Convert image to JPEG and return as base64
-async function convertToJpeg(payload: any): Promise<string | null> {
-  try {
-    const jpegBuffer = await sharp(payload).jpeg().toBuffer();
-    return jpegBuffer.toString('base64');
-  } catch (error) {
-    console.error("Error converting image to .jpeg:", error);
-    return null;
-  }
-}
-
 async function requestMemory(): Promise<TimestampedPrompt[]> {
     const data = await fetch(dataHandlerUrl);
     const currentStoredSubconscious: TimestampedPrompt[] = await data.json();
@@ -152,5 +98,4 @@ function triggerAmicaActions(payload: any) {
   const { json, textStream, animation, normal, tg, twitter } = payload;
   console.log(`Triggering actions with flags: ${JSON.stringify({ json, textStream, animation, normal, tg, twitter })}`);
 }
-
 

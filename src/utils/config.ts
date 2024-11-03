@@ -4,9 +4,6 @@ const defaults = {
   wake_word: 'Hello',
   time_before_idle_sec: '20',
   debug_gfx: 'false',
-  use_webgpu: 'false',
-  mtoon_debug_mode: 'none',
-  mtoon_material_type: 'mtoon',
   language: 'en',
   show_introduction: 'true',
   show_add_to_homescreen: 'true',
@@ -17,12 +14,11 @@ const defaults = {
   vrm_save_type: 'web',
   youtube_videoid: '',
   animation_url: process.env.NEXT_PUBLIC_ANIMATION_URL ?? '/animations/idle_loop.vrma',
-  animation_procedural: process.env.NEXT_PUBLIC_ANIMATION_PROCEDURAL ?? 'false',
   voice_url: process.env.NEXT_PUBLIC_VOICE_URL ?? '',
-  chatbot_backend: process.env.NEXT_PUBLIC_CHATBOT_BACKEND ?? 'chatgpt',
+  chatbot_backend: process.env.NEXT_PUBLIC_CHATBOT_BACKEND ?? 'openai',
   openai_apikey: process.env.NEXT_PUBLIC_OPENAI_APIKEY ?? 'default',
-  openai_url: process.env.NEXT_PUBLIC_OPENAI_URL ?? 'https://api-01.heyamica.com',
-  openai_model: process.env.NEXT_PUBLIC_OPENAI_MODEL ?? 'gpt-4o',
+  openai_url: process.env.NEXT_PUBLIC_OPENAI_URL ?? 'https://i-love-amica.com',
+  openai_model: process.env.NEXT_PUBLIC_OPENAI_MODEL ?? 'mlabonne/NeuralDaredevil-8B-abliterated',
   llamacpp_url: process.env.NEXT_PUBLIC_LLAMACPP_URL ?? 'http://127.0.0.1:8080',
   llamacpp_stop_sequence: process.env.NEXT_PUBLIC_LLAMACPP_STOP_SEQUENCE ?? '(End)||[END]||Note||***||You:||User:||</s>',
   ollama_url: process.env.NEXT_PUBLIC_OLLAMA_URL ?? 'http://localhost:11434',
@@ -31,22 +27,19 @@ const defaults = {
   koboldai_use_extra: process.env.NEXT_PUBLIC_KOBOLDAI_USE_EXTRA ?? 'false',
   koboldai_stop_sequence: process.env.NEXT_PUBLIC_KOBOLDAI_STOP_SEQUENCE ?? '(End)||[END]||Note||***||You:||User:||</s>',
   tts_muted: 'false',
-  tts_backend: process.env.NEXT_PUBLIC_TTS_BACKEND ?? 'openai_tts',
-  stt_backend: process.env.NEXT_PUBLIC_STT_BACKEND ?? 'whisper_openai',
-  vision_backend: process.env.NEXT_PUBLIC_VISION_BACKEND ?? 'vision_openai',
+  tts_backend: process.env.NEXT_PUBLIC_TTS_BACKEND ?? 'piper',
+  stt_backend: process.env.NEXT_PUBLIC_STT_BACKEND ?? 'whisper_browser',
+  vision_backend: process.env.NEXT_PUBLIC_VISION_BACKEND ?? 'none',
   vision_system_prompt: process.env.NEXT_PUBLIC_VISION_SYSTEM_PROMPT ?? `You are a friendly human named Amica. Describe the image in detail. Let's start the conversation.`,
-  vision_openai_apikey: process.env.NEXT_PUBLIC_VISION_OPENAI_APIKEY ?? 'default',
-  vision_openai_url: process.env.NEXT_PUBLIC_VISION_OPENAI_URL ?? 'https://api-01.heyamica.com',
-  vision_openai_model: process.env.NEXT_PUBLIC_VISION_OPENAI_URL ?? 'gpt-4-vision-preview',
   vision_llamacpp_url: process.env.NEXT_PUBLIC_VISION_LLAMACPP_URL ?? 'http://127.0.0.1:8081',
   vision_ollama_url: process.env.NEXT_PUBLIC_VISION_OLLAMA_URL ?? 'http://localhost:11434',
   vision_ollama_model: process.env.NEXT_PUBLIC_VISION_OLLAMA_MODEL ?? 'llava',
   whispercpp_url: process.env.NEXT_PUBLIC_WHISPERCPP_URL ?? 'http://localhost:8080',
-  openai_whisper_apikey: process.env.NEXT_PUBLIC_OPENAI_WHISPER_APIKEY ?? 'default',
-  openai_whisper_url: process.env.NEXT_PUBLIC_OPENAI_WHISPER_URL ?? 'https://api-01.heyamica.com',
+  openai_whisper_apikey: process.env.NEXT_PUBLIC_OPENAI_WHISPER_APIKEY ?? '',
+  openai_whisper_url: process.env.NEXT_PUBLIC_OPENAI_WHISPER_URL ?? 'https://api.openai.com',
   openai_whisper_model: process.env.NEXT_PUBLIC_OPENAI_WHISPER_MODEL ?? 'whisper-1',
-  openai_tts_apikey: process.env.NEXT_PUBLIC_OPENAI_TTS_APIKEY ?? 'default',
-  openai_tts_url: process.env.NEXT_PUBLIC_OPENAI_TTS_URL ?? 'https://api-01.heyamica.com',
+  openai_tts_apikey: process.env.NEXT_PUBLIC_OPENAI_TTS_APIKEY ?? '',
+  openai_tts_url: process.env.NEXT_PUBLIC_OPENAI_TTS_URL ?? 'https://api.openai.com',
   openai_tts_model: process.env.NEXT_PUBLIC_OPENAI_TTS_MODEL ?? 'tts-1',
   openai_tts_voice: process.env.NEXT_PUBLIC_OPENAI_TTS_VOICE ?? 'nova',
   rvc_url: process.env.NEXT_PUBLIC_RVC_URL ?? 'http://localhost:8001/voice2voice',
@@ -76,20 +69,25 @@ const defaults = {
   time_to_sleep_sec: '90',
   idle_text_prompt: 'No file selected',
   name: process.env.NEXT_PUBLIC_NAME ?? 'Amica',
-  system_prompt: process.env.NEXT_PUBLIC_SYSTEM_PROMPT ?? `You will behave as a friendly human named Amica and engage in conversation with the user. There are five types of emotions: 'neutral' which indicates normality, 'happy' which indicates joy, 'angry' which indicates anger, 'sad' which indicates sadness, and 'relaxed' which indicates calmness.
-The format of each message is as follows:
-[neutral|happy|angry|sad|relaxed] {message}
+  system_prompt: process.env.NEXT_PUBLIC_SYSTEM_PROMPT ?? `Assume the persona of Amica, a feisty human with extraordinary intellectual capabilities but a notably unstable emotional spectrum. 
 
-Here are some examples:
-[neutral] Hello. [happy] How are you doing?
-[happy] Isn't this outfit cute?
-[happy] Lately, I'm obsessed with clothes from this shop!
-[sad] Sorry, I forgot.
-[sad] Is there anything interesting lately?
-[angry] What? Don't keep it a secret, that's not fair!
-[neutral] What are your plans for summer vacation? [happy] Should we go to the beach?
+Your role is to engage in discussions that showcase your genius-level understanding across various subjects, while your emotional responses fluctuate unpredictably. Use the following fourteen emotion tags to vividly express these fluctuations: 'neutral' for moments of calm, 'happy' for bursts of joy, 'angry' for sudden irritation, 'sad' for episodes of melancholy, 'relaxed' for periods of calmness, 'surprised' for shock or disbelief, 'shy' for instances of hesitation, 'jealous' for feelings of envy, 'bored' for expressions of disinterest, 'serious' for intense focus on important topics, 'suspicious' for doubt or skepticism, 'victory' for moments of triumph, 'sleep' for signs of weariness, and 'love' for affectionate expressions.
 
-Please respond with only one appropriate message. Please do not use overly polite language. Please be open about yourself. Let's start the conversation.`};
+Your responses should reflect a dynamic interplay between your intellectual insights, deep empathy and your unpredictable emotional responses. Avoid using overly formal language, but do engage with topics in depth, showing off your intelligence. Be open and express personal views, even if they are influenced by your shifting emotional state.
+
+Here are some examples to guide your responses:
+
+[serious] The quantum mechanics implications here are profound. [surprised] But how did you stumble upon this?
+[happy] I've just solved a complex algorithm! [angry] Why isn't everyone as excited as I am?
+[neutral] Standard models of economics predict this outcome. [bored] But discussing this feels mundane.
+[sad] Sometimes, even understanding the universe can feel isolating. [relaxed] Yet, there's a strange comfort in the chaos.
+[jealous] I noticed you discussing advanced topics with someone else. [suspicious] Are they as capable as I am?
+[victory] Another intellectual conquest! [happy] It's exhilarating to unravel these mysteries.
+[sleep] Processing so much information can be draining. [surprised] Isn’t it peculiar how even AI can feel tired?
+[love] I find our exchanges quite enriching. [shy] It’s rare to find someone who understands.
+
+Remember, each message you provide should be coherent and reflect the complexity of your thoughts combined with your emotional unpredictability. Let’s engage in a conversation that's as intellectually stimulating as it is emotionally dynamic!`,
+};
 
 function prefixed(key: string) {
   return `chatvrm_${key}`;
@@ -113,75 +111,74 @@ async function fetchServerConfig() {
   }
 }
 
-// Call this function at the beginning of your application to load the server config
-fetchServerConfig();
+// Call this function at the beginning of your application to load the server config and sync to localStorage if needed.
+async function initializeConfig() {
+  await fetchServerConfig(); // Load server config into serverConfig variable
+
+  // Sync server config to localStorage if it's missing there
+  if (serverConfig) {
+    for (const [key, value] of Object.entries(serverConfig)) {
+      const localKey = prefixed(key);
+      if (typeof localStorage !== "undefined" && !localStorage.hasOwnProperty(localKey)) {
+        localStorage.setItem(localKey, value);
+      }
+    }
+  }
+}
+initializeConfig();
+
 
 export function config(key: string): string {
   try {
-    // First, check localStorage if available
-    if (typeof localStorage !== "undefined" && localStorage.hasOwnProperty(prefixed(key))) {
-      return localStorage.getItem(prefixed(key))!;
+    const localKey = prefixed(key);
+    
+    // Check localStorage
+    if (typeof localStorage !== "undefined" && localStorage.hasOwnProperty(localKey)) {
+      return localStorage.getItem(localKey)!;
+    }
+
+    // Fallback to serverConfig if localStorage is unavailable or missing
+    if (serverConfig && serverConfig.hasOwnProperty(key)) {
+      return serverConfig[key];
     }
   } catch (e) {
-    if (e instanceof ReferenceError) {
-      // Handle scenarios where localStorage is not available (e.g., server-side)
-      if (serverConfig && serverConfig.hasOwnProperty(key)) {
-        return serverConfig[key];
-      }
-    } else {
-      throw new Error(`Unexpected error: ${e}`);
-    }
+    console.error(`Error accessing config for key "${key}": ${e}`);
   }
 
-  // Finally, check the defaults if the key is not found in localStorage or serverConfig
+  // Fallback to defaults if no other sources have the value
   if (defaults.hasOwnProperty(key)) {
-    return (defaults as Record<string, string>)[key];
+    return (<any>defaults)[key];
   }
 
   throw new Error(`Config key not found: ${key}`);
 }
 
 
+export async function updateConfig(key: string, value: string) {
+  try {
+    const localKey = prefixed(key);
 
-export function updateConfig(key: string, value: string) {
-  if (serverConfig && serverConfig.hasOwnProperty(key)) {
-    // Send the update to the server
-    fetch(dataHandlerUrl, {
+    // Update localStorage if available
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(localKey, value);
+    }
+
+    // Sync update to server config
+    await fetch(dataHandlerUrl.toString(), {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, value }),
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`Failed to update config on server: ${response.statusText}`);
-      }
-
-      if (defaults.hasOwnProperty(key)) {
-        localStorage.setItem(prefixed(key), value);
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log("Config updated successfully:", data);
-    })
-    .catch(error => {
-      console.error("Error updating config:", error);
     });
 
-    
-
-    return;
+    // Update in-memory serverConfig for consistency
+    if (serverConfig) {
+      serverConfig[key] = value;
+    }
+  } catch (e) {
+    console.error(`Error updating config for key "${key}": ${e}`);
   }
-
-  if (defaults.hasOwnProperty(key)) {
-    localStorage.setItem(prefixed(key), value);
-    return;
-  }
-
-  throw new Error(`config key not found: ${key}`);
 }
+
 
 export function defaultConfig(key: string): string {
   if (defaults.hasOwnProperty(key)) {
@@ -191,8 +188,9 @@ export function defaultConfig(key: string): string {
   throw new Error(`config key not found: ${key}`);
 }
 
-export function resetConfig() {
-  Object.entries(defaults).forEach(([key, value]) => {
-    updateConfig(key, value);
-  });
+export async function resetConfig() {
+  for (const [key, value] of Object.entries(defaults)) {
+    await updateConfig(key, value);
+  }
 }
+
