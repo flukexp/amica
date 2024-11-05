@@ -7,9 +7,20 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 interface ApiResponse {
   sessionId?: string;
   outputType?: string;
-  response?: string | TimestampedPrompt[];
+  response?: string | TimestampedPrompt[] | LogEntry[];
   error?: string;
 }
+
+interface LogEntry {
+    sessionId: string;
+    timestamp: string;
+    inputType: string;
+    outputType: string;
+    response?: string | TimestampedPrompt[] | LogEntry[];
+    error?: string;
+  }
+  
+export const logs: LogEntry[] = [];
 
 const generateSessionId = (sessionId?: string) => sessionId || randomBytes(8).toString('hex');
 
@@ -28,12 +39,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
   const { sessionId, inputType, noProcessChat = false, payload } = req.body;
   const currentSessionId = generateSessionId(sessionId);
+  const timestamp = new Date().toISOString();
 
   if (!inputType || !payload) {
     return sendError(res, currentSessionId, "inputType and payload are required.");
   }
 
-  let response: string | undefined | TimestampedPrompt[];
+  let response: string | undefined | TimestampedPrompt[] | LogEntry[];
   let outputType: string | undefined;
 
   try {
@@ -43,21 +55,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         outputType = "Complete stream";
         break;
 
-      case "Twitter Message":
-      case "Brain Message":
-        response = payload; // Direct return
-        outputType = "Text";
-        break;
-
       case "Memory Request":
         response = await requestMemory();
         outputType = "Memory Array";
         break;
 
       case "RPC Webhook":
-        sendToClient({ output: `All outputs to client: ${JSON.stringify(payload)}` });
+        response = `${JSON.stringify(logs)}`;
         outputType = "Webhook";
-        response = "RPC webhook triggered";
+        break;
+
+      case "Twitter Message":
+      case "Brain Message":
+        response = payload; // Direct return
+        outputType = "Text";
         break;
 
       case "Reasoning Server":
@@ -70,9 +81,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         return sendError(res, currentSessionId, "Unknown input type.");
     }
 
+    logs.push({ sessionId: currentSessionId, timestamp, inputType, outputType, response });
     res.status(200).json({ sessionId: currentSessionId, outputType, response });
   } catch (error) {
     console.error("Handler error:", error);
+    logs.push({ sessionId: currentSessionId, timestamp, inputType, outputType: "Error", error: String(error) });
     return sendError(res, currentSessionId, "An error occurred while processing the request.", 500);
   }
 }
@@ -88,14 +101,15 @@ async function requestMemory(): Promise<TimestampedPrompt[]> {
     return currentStoredSubconscious;
 }
 
-// Mock function to simulate sending data to client in case of a webhook
-function sendToClient(data: { output: string }) {
-  console.log("Sending data to client:", data.output);
-}
-
 // Function to trigger actions based on Reasoning Server flags
 function triggerAmicaActions(payload: any) {
   const { json, textStream, animation, normal, tg, twitter } = payload;
-  console.log(`Triggering actions with flags: ${JSON.stringify({ json, textStream, animation, normal, tg, twitter })}`);
+  logs.push({
+    sessionId: "Action-Log",
+    timestamp: new Date().toISOString(),
+    inputType: "Reasoning Server",
+    outputType: "Action Log",
+    response: `Triggering actions with flags: ${JSON.stringify({ json, textStream, animation, normal, tg, twitter })}`,
+  });
 }
 

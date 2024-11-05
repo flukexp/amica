@@ -7,6 +7,9 @@ import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 const configFilePath = path.resolve('config.json');
 const subconsciousFilePath = path.resolve('src/features/amicaLife/subconscious.json');
 
+// Clear the subconscious.json file by overwriting it with an empty array
+fs.writeFileSync(subconsciousFilePath, JSON.stringify([]), 'utf8');
+
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   // Handle requests to both config and subconscious data
   const { type } = req.query; // Expecting `type` parameter to determine which file to operate on

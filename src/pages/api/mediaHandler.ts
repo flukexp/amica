@@ -3,6 +3,7 @@ import { whispercpp } from '@/features/whispercpp/whispercpp';
 import { askVisionLLM } from '@/utils/askLlm';
 import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 import { config as configs} from '@/utils/config';
+import { logs } from './amicaHandler';
 
 import { randomBytes } from 'crypto';
 import sharp from 'sharp';
@@ -38,6 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   }
 
   const currentSessionId = generateSessionId(req.body?.sessionId);
+  const timestamp = new Date().toISOString();
 
   if (req.headers['content-type']?.includes('multipart/form-data')) {
     // Handle form-data
@@ -47,14 +49,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         console.error("Form parsing error:", err);
         return sendError(res, currentSessionId, "Failed to parse form data.");
       }
-      handleRequest(currentSessionId, fields, files, res);
+      handleRequest(currentSessionId, timestamp, fields, files, res);
     });
   } else {
     return sendError(res, currentSessionId, "Incorrect type");
   }
 }
 
-async function handleRequest(sessionId: string, fields: any, files: any, res: NextApiResponse<ApiResponse>) {
+async function handleRequest(sessionId: string, timestamp: string, fields: any, files: any, res: NextApiResponse<ApiResponse>) {
   let response: string | undefined | TimestampedPrompt[];
   let outputType: string | undefined;
 
@@ -89,9 +91,11 @@ async function handleRequest(sessionId: string, fields: any, files: any, res: Ne
         return sendError(res, sessionId, "Unknown input type.");
     }
 
+    logs.push({ sessionId: sessionId, timestamp, inputType, outputType, response });
     res.status(200).json({ sessionId, outputType, response });
   } catch (error) {
     console.error("Handler error:", error);
+    logs.push({ sessionId: sessionId, timestamp, inputType, outputType: "Error", error: String(error) });
     return sendError(res, sessionId, "An error occurred while processing the request.", 500);
   }
 }
@@ -120,7 +124,9 @@ async function transcribeVoice(audio: File): Promise<string> {
 // Process image using Vision LLM
 async function processImage(payload: Buffer): Promise<string> {
   const jpegImg = await convertToJpeg(payload);
-  if (!jpegImg) throw new Error("Failed to process image");
+  if (!jpegImg) {
+    throw new Error("Failed to process image");
+  }
   return await askVisionLLM(jpegImg);
 }
 
