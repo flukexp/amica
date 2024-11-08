@@ -36,6 +36,17 @@ const sendError = (
   status = 400,
 ) => res.status(status).json({ sessionId, error: message });
 
+let clients: any[] = []; // This stores all the connected clients (for broadcasting)
+
+// Function to send structured data to all connected clients
+const sendToClients = (message: { type: string; data: any }) => {
+    const formattedMessage = JSON.stringify(message);
+    clients.forEach((client) => {
+      client.res.write(`data: ${formattedMessage}\n\n`);
+    });
+  };
+  
+
 let dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
 dataHandlerUrl.searchParams.append("type", "subconscious");
 
@@ -46,6 +57,28 @@ export default async function handler(
 ) {
   if (process.env.API_ENABLED !== "true") {
     return sendError(res, "", "API is currently disabled.", 503);
+  }
+
+  // Handle GET requests to establish the SSE connection
+  if (req.method === 'GET') {
+    // Set the necessary SSE headers for the response
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('X-Accel-Buferring', 'no');
+    res.setHeader('Connection', 'keep-alive');
+
+    // Save the client connection (useful if broadcasting is needed)
+    const client = { res };
+    clients.push(client);
+
+    // Clean up and close the connection if the client disconnects
+    req.on('close', () => {
+      console.log('Client disconnected');
+      clients = clients.filter((client) => client.res !== res); // Remove disconnected client from the list
+      res.end(); // Close the SSE connection properly
+    });
+
+    return; // End the function here to prevent further execution
   }
 
   const { sessionId, inputType, noProcessChat = false, payload } = req.body;
@@ -86,9 +119,9 @@ export default async function handler(
         outputType = "Text";
         break;
 
-      case "Reasoning Server":
+      case "Reasoning Server":    
+        response = await triggerAmicaActions(req, res, payload);
         outputType = "Action Triggered";
-        response = await triggerAmicaActions(payload);
         break;
 
       default:
@@ -133,46 +166,43 @@ async function requestMemory(): Promise<TimestampedPrompt[]> {
 }
 
 // Function to trigger actions based on Reasoning Server flags
-async function triggerAmicaActions(payload: any) {
-  const { text, playback, reprocess, socialMedia, animation } = payload;
-
-  // Initialize response
-  let response;
-
-  // Check if 'text' is provided for social media posting
-  if (text) {
-    // Handle reprocess if true
-    let message = text;
-    if (reprocess) {
-        message = await processNormalChat(text);
+async function triggerAmicaActions(req: NextApiRequest, res: NextApiResponse, payload: any) {
+    const { text, socialMedia, playback, reprocess, animation } = payload;
+    let response;
+  
+    if (text) {
+      // Process text if reprocess is true
+      let message = text;
+      if (reprocess) {
+        message = await askLLM(config("system_prompt"), text, null);
+      }
+  
+      // Handle social media actions
+      switch (socialMedia) {
+        case "twitter":
+          response = await twitterClient.postTweet(message);
+          break;
+        case "tg":
+          response = "Telegram response placeholder"; // Adjust as needed
+          break;
+        case "none":
+          response = sendToClients({type: "normal", data : message});
+          break;
+        default:
+          console.log("No social media selected for posting.");
+          response = "No action taken for social media.";
+      }
     }
-    switch (socialMedia) {
-      case "twitter":
-        response = await twitterClient.postTweet(message);
-        break;
-
-      case "tg":
-        // Assuming there is a telegramClient available
-        //   response = await telegramClient.sendMessage(text);
-        break;
-
-      default:
-        console.log("No social media selected for posting.");
-        response = "No action taken for social media.";
+  
+    // Handle playback if true
+    if (playback) {
+        console.log("Triggering playback...");
+        // Add playback logic here
     }
-  } 
+    // Handle animation if provided
+    if (animation) {
+        response = sendToClients({type: "animation", data : animation})
+    }
 
-  // Handle playback if true
-  if (playback) {
-    console.log("Triggering playback...");
-    // Add playback logic here
+    return response;
   }
-
-  // Handle animation if provided
-  if (animation) {
-    console.log(`Triggering animation: ${animation}`);
-    // Add animation handling logic here
-  }
-
-  return response;
-}
