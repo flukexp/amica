@@ -401,6 +401,30 @@ export class Chat {
             requestAnimationFrame(() => { this.viewer?.resetCameraLerp(); });
             break;
 
+          case 'playback':
+            console.log('Playback flag received:', data);
+            this.viewer?.startRecording();
+            // Automatically stop recording after 10 seconds
+            setTimeout(() => {
+              this.viewer?.stopRecording((videoBlob) => {
+                // Log video blob to console
+                console.log("Video recording finished", videoBlob);
+
+                // Create a download link for the video file
+                const url = URL.createObjectURL(videoBlob!);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "recording.webm"; // Set the file name for download
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // Revoke the URL to free up memory
+                URL.revokeObjectURL(url);
+              });
+            }, data); // Stop recording after 10 seconds
+            break;
+
           default:
             console.warn('Unknown message type:', type);
         }

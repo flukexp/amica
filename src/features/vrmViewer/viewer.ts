@@ -26,6 +26,9 @@ export class Viewer {
   private sendScreenshotToCallback: boolean;
   private screenshotCallback: BlobCallback | undefined;
 
+  private mediaRecorder?: MediaRecorder;
+  private recordedChunks: Blob[] = [];
+
   constructor() {
     this.isReady = false;
     this.sendScreenshotToCallback = false;
@@ -222,6 +225,40 @@ export class Viewer {
       }
     }
   };
+
+  // Method to start recording
+  public startRecording() {
+    if (!this._renderer) return;
+
+    // Create a stream from the renderer's canvas
+    const stream = this._renderer.domElement.captureStream(30); // 30 FPS
+    this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+
+    // Collect data in chunks
+    this.mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        this.recordedChunks.push(event.data);
+      }
+    };
+
+    // Start recording
+    this.mediaRecorder.start();
+  }
+
+  // Method to stop recording and trigger callback
+  public stopRecording(callback: BlobCallback) {
+    if (!this.mediaRecorder) return;
+
+    // Stop recording and create the video blob
+    this.mediaRecorder.onstop = () => {
+      const recordedBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
+      callback(recordedBlob); // Pass the video blob to the callback
+      this.recordedChunks = []; // Clear chunks for the next recording
+    };
+
+    // Stop the recorder
+    this.mediaRecorder.stop();
+  }
 
   public onMouseClick(event: MouseEvent): boolean {
     if (!this._renderer || !this._camera || !this.model?.vrm) return false;
