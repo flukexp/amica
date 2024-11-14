@@ -28,6 +28,7 @@ export class Viewer {
 
   private mediaRecorder?: MediaRecorder;
   private recordedChunks: Blob[] = [];
+  private videoStream: any;
 
   constructor() {
     this.isReady = false;
@@ -221,18 +222,50 @@ export class Viewer {
       if (this.sendScreenshotToCallback && this.screenshotCallback) {
         this._renderer.domElement.toBlob(this.screenshotCallback, "image/jpeg");
         this.sendScreenshotToCallback = false;
-
       }
     }
   };
+
+  public startStreaming(videoElement: HTMLVideoElement) {
+    if (!this._renderer) return;
+  
+    // Create a stream from the renderer's canvas
+    const stream = this._renderer.domElement.captureStream(60); // 60 FPS for smooth streaming
+
+    this.videoStream = stream;
+  
+    // Assign the stream to the provided video element for live view
+    videoElement.srcObject = stream;
+    videoElement.play();
+
+    console.log("Start streaming!")
+  }
+
+  public stopStreaming() {
+    if (!this.videoStream) return;
+
+    // Stop all tracks on the stream to end streaming
+    this.videoStream.getTracks().forEach((track: { stop: () => any; }) => track.stop());
+    this.videoStream = null; // Clear the stream reference
+
+    console.log("Streaming stopped!");
+}
+  
 
   // Method to start recording
   public startRecording() {
     if (!this._renderer) return;
 
     // Create a stream from the renderer's canvas
-    const stream = this._renderer.domElement.captureStream(30); // 30 FPS
-    this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    const stream = this._renderer.domElement.captureStream(60); // 30 FPS
+    
+    // Higher quality and bit rate for better video clarity
+    const options = {
+      mimeType: 'video/webm;codecs=vp9',
+      videoBitsPerSecond: 8000000, // 8 Mbps for higher quality
+    };
+
+    this.mediaRecorder = new MediaRecorder(stream, options);
 
     // Collect data in chunks
     this.mediaRecorder.ondataavailable = (event) => {
@@ -244,6 +277,7 @@ export class Viewer {
     // Start recording
     this.mediaRecorder.start();
   }
+
 
   // Method to stop recording and trigger callback
   public stopRecording(callback: BlobCallback) {

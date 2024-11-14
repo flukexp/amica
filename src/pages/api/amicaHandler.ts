@@ -197,8 +197,8 @@ async function triggerAmicaActions(req: NextApiRequest, res: NextApiResponse, pa
     // Handle playback if true, data = time in ms.
     if (playback) {
         response = sendToClients({type: "playback", data : 10000})
-        // Add playback logic here
     }
+
     // Handle animation if provided
     if (animation) {
         response = sendToClients({type: "animation", data : animation})

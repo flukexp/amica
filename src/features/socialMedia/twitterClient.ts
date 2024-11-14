@@ -5,11 +5,11 @@ class TwitterClient {
   private twitterBearer: TwitterApiReadOnly;
 
   constructor() {
-    const appKey = process.env.API_KEY as string;
-    const appSecret = process.env.API_SECRET as string;
-    const accessToken = process.env.ACCESS_TOKEN as string;
-    const accessSecret = process.env.ACCESS_SECRET as string;
-    const bearerToken = process.env.BEARER_TOKEN as string;
+    const appKey = process.env.X_API_KEY as string;
+    const appSecret = process.env.X_API_SECRET as string;
+    const accessToken = process.env.X_ACCESS_TOKEN as string;
+    const accessSecret = process.env.X_ACCESS_SECRET as string;
+    const bearerToken = process.env.X_BEARER_TOKEN as string;
 
     // Initialize the Twitter API client with access tokens
     const client = new TwitterApi({
