@@ -1,10 +1,9 @@
 import { askLLM } from "@/utils/askLlm";
 import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
-
 import { randomBytes } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
-
 import { twitterClientInstance as twitterClient } from "@/features/socialMedia/twitterClient";
+import { telegramClientInstance as telegramCLient } from "@/features/socialMedia/telegramClient";
 import { config } from "@/utils/config";
 
 interface ApiResponse {
@@ -23,111 +22,101 @@ interface LogEntry {
   error?: string;
 }
 
-export const logs: LogEntry[] = [];
+const logs: LogEntry[] = [];
+const clients: Array<{ res: NextApiResponse }> = [];
+const dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
+dataHandlerUrl.searchParams.append("type", "subconscious");
 
-const generateSessionId = (sessionId?: string) =>
+// Helper Functions
+const generateSessionId = (sessionId?: string): string =>
   sessionId || randomBytes(8).toString("hex");
 
-// Helper for setting error responses
 const sendError = (
   res: NextApiResponse<ApiResponse>,
   sessionId: string,
   message: string,
-  status = 400,
+  status = 400
 ) => res.status(status).json({ sessionId, error: message });
 
-let clients: any[] = []; // This stores all the connected clients (for broadcasting)
-
-// Function to send structured data to all connected clients
 const sendToClients = (message: { type: string; data: any }) => {
-    const formattedMessage = JSON.stringify(message);
-    clients.forEach((client) => {
-      client.res.write(`data: ${formattedMessage}\n\n`);
-    });
-  };
-  
+  const formattedMessage = JSON.stringify(message);
+  clients.forEach((client) => client.res.write(`data: ${formattedMessage}\n\n`));
+};
 
-let dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
-dataHandlerUrl.searchParams.append("type", "subconscious");
+// Processors
+const processNormalChat = async (message: string): Promise<string> =>
+  await askLLM(config("system_prompt"), message, null);
 
-// Main API handler
+const requestMemory = async (): Promise<TimestampedPrompt[]> => {
+  const response = await fetch(dataHandlerUrl);
+  return response.json();
+};
+
+const triggerAmicaActions = async (payload: any): Promise<any> => {
+  const { text, socialMedia, playback, reprocess, animation } = payload;
+  let response;
+
+  if (text) {
+    const message = reprocess
+      ? await askLLM(config("system_prompt"), text, null)
+      : text;
+
+    response = await handleSocialMediaActions(message, socialMedia);
+  }
+
+  if (playback) {
+    response = sendToClients({ type: "playback", data: 10000 });
+  }
+
+  if (animation) {
+    response = sendToClients({ type: "animation", data: animation });
+  }
+
+  return response;
+};
+
+const handleSocialMediaActions = async (
+  message: string,
+  socialMedia: string
+): Promise<any> => {
+  switch (socialMedia) {
+    case "twitter":
+      return await twitterClient.postTweet(message);
+    case "tg":
+      return await telegramCLient.postMessage(message);
+    case "none":
+      sendToClients({ type: "normal", data: message });
+      return "Broadcasted to clients";
+    default:
+      console.log("No social media selected for posting.");
+      return "No action taken for social media.";
+  }
+};
+
+// API Handler
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse>,
+  res: NextApiResponse<ApiResponse>
 ) {
   if (process.env.API_ENABLED !== "true") {
     return sendError(res, "", "API is currently disabled.", 503);
   }
 
-  // Handle GET requests to establish the SSE connection
-  if (req.method === 'GET') {
-    // Set the necessary SSE headers for the response
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('X-Accel-Buferring', 'no');
-    res.setHeader('Connection', 'keep-alive');
-
-    // Save the client connection (useful if broadcasting is needed)
-    const client = { res };
-    clients.push(client);
-
-    // Clean up and close the connection if the client disconnects
-    req.on('close', () => {
-      console.log('Client disconnected');
-      clients = clients.filter((client) => client.res !== res); // Remove disconnected client from the list
-      res.end(); // Close the SSE connection properly
-    });
-
-    return; // End the function here to prevent further execution
+  if (req.method === "GET") {
+    handleSSEConnection(req, res);
+    return;
   }
 
-  const { sessionId, inputType, noProcessChat = false, payload } = req.body;
+  const { sessionId, inputType, payload, noProcessChat = false } = req.body;
   const currentSessionId = generateSessionId(sessionId);
   const timestamp = new Date().toISOString();
 
   if (!inputType || !payload) {
-    return sendError(
-      res,
-      currentSessionId,
-      "inputType and payload are required.",
-    );
+    return sendError(res, currentSessionId, "inputType and payload are required.");
   }
 
-  let response: any;
-  let outputType: string | undefined;
-
   try {
-    switch (inputType) {
-      case "Normal Chat Message":
-        response = await processNormalChat(payload);
-        outputType = "Complete stream";
-        break;
-
-      case "Memory Request":
-        response = await requestMemory();
-        outputType = "Memory Array";
-        break;
-
-      case "RPC Webhook":
-        response = `${JSON.stringify(logs)}`;
-        outputType = "Webhook";
-        break;
-
-      case "Twitter Message":
-      case "Brain Message":
-        response = payload; // Direct return
-        outputType = "Text";
-        break;
-
-      case "Reasoning Server":    
-        response = await triggerAmicaActions(req, res, payload);
-        outputType = "Action Triggered";
-        break;
-
-      default:
-        return sendError(res, currentSessionId, "Unknown input type.");
-    }
-
+    const { response, outputType } = await processRequest(inputType, payload);
     logs.push({
       sessionId: currentSessionId,
       timestamp,
@@ -137,72 +126,65 @@ export default async function handler(
     });
     res.status(200).json({ sessionId: currentSessionId, outputType, response });
   } catch (error) {
-    console.error("Handler error:", error);
-    logs.push({
-      sessionId: currentSessionId,
-      timestamp,
-      inputType,
-      outputType: "Error",
-      error: String(error),
-    });
-    return sendError(
-      res,
-      currentSessionId,
-      "An error occurred while processing the request.",
-      500,
-    );
+    handleProcessingError(res, error, currentSessionId, inputType, timestamp);
   }
 }
 
-// Function to process Normal Chat Message
-async function processNormalChat(message: string): Promise<string> {
-  return await askLLM(config("system_prompt"), message, null);
-}
+// Sub-functions
+const handleSSEConnection = (
+  req: NextApiRequest,
+  res: NextApiResponse
+): void => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Connection", "keep-alive");
 
-async function requestMemory(): Promise<TimestampedPrompt[]> {
-  const data = await fetch(dataHandlerUrl);
-  const currentStoredSubconscious: TimestampedPrompt[] = await data.json();
-  return currentStoredSubconscious;
-}
+  const client = { res };
+  clients.push(client);
 
-// Function to trigger actions based on Reasoning Server flags
-async function triggerAmicaActions(req: NextApiRequest, res: NextApiResponse, payload: any) {
-    const { text, socialMedia, playback, reprocess, animation } = payload;
-    let response;
-  
-    if (text) {
-      // Process text if reprocess is true
-      let message = text;
-      if (reprocess) {
-        message = await askLLM(config("system_prompt"), text, null);
-      }
-  
-      // Handle social media actions
-      switch (socialMedia) {
-        case "twitter":
-          response = await twitterClient.postTweet(message);
-          break;
-        case "tg":
-          response = "Telegram response placeholder"; // Adjust as needed
-          break;
-        case "none":
-          response = sendToClients({type: "normal", data : message});
-          break;
-        default:
-          console.log("No social media selected for posting.");
-          response = "No action taken for social media.";
-      }
-    }
-  
-    // Handle playback if true, data = time in ms.
-    if (playback) {
-        response = sendToClients({type: "playback", data : 10000})
-    }
+  req.on("close", () => {
+    console.log("Client disconnected");
+    clients.splice(clients.indexOf(client), 1);
+    res.end();
+  });
+};
 
-    // Handle animation if provided
-    if (animation) {
-        response = sendToClients({type: "animation", data : animation})
-    }
-
-    return response;
+const processRequest = async (
+  inputType: string,
+  payload: any
+): Promise<{ response: any; outputType: string }> => {
+  switch (inputType) {
+    case "Normal Chat Message":
+      return { response: await processNormalChat(payload), outputType: "Complete stream" };
+    case "Memory Request":
+      return { response: await requestMemory(), outputType: "Memory Array" };
+    case "RPC Webhook":
+      return { response: JSON.stringify(logs), outputType: "Webhook" };
+    case "Twitter Message":
+    case "Brain Message":
+      return { response: payload, outputType: "Text" };
+    case "Reasoning Server":
+      return { response: await triggerAmicaActions(payload), outputType: "Action Triggered" };
+    default:
+      throw new Error("Unknown input type");
   }
+};
+
+const handleProcessingError = (
+  res: NextApiResponse<ApiResponse>,
+  error: any,
+  sessionId: string,
+  inputType: string,
+  timestamp: string
+): void => {
+  console.error("Handler error:", error);
+  logs.push({
+    sessionId,
+    timestamp,
+    inputType,
+    outputType: "Error",
+    error: String(error),
+  });
+  sendError(res, sessionId, "An error occurred while processing the request.", 500);
+};

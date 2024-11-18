@@ -3,76 +3,102 @@ import fs from 'fs';
 import path from 'path';
 import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 
-// Define paths for config and subconscious files
+// Define file paths
 const configFilePath = path.resolve('config.json');
 const subconsciousFilePath = path.resolve('src/features/amicaLife/subconscious.json');
 
-// Clear the subconscious.json file by overwriting it with an empty array
-fs.writeFileSync(subconsciousFilePath, JSON.stringify([]), 'utf8');
+// Utility functions for file operations
+const readFile = (filePath: string): any => {
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(`Error reading file at ${filePath}:`, error);
+    throw new Error(`Failed to read file: ${error}`);
+  }
+};
+
+const writeFile = (filePath: string, content: any): void => {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf8');
+  } catch (error) {
+    console.error(`Error writing file at ${filePath}:`, error);
+    throw new Error(`Failed to write file: ${error}`);
+  }
+};
+
+// Clear subconscious data on startup
+writeFile(subconsciousFilePath, []);
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Handle requests to both config and subconscious data
-  const { type } = req.query; // Expecting `type` parameter to determine which file to operate on
+  const { type } = req.query;
 
-  if (req.method === 'GET') {
-    if (type === 'config') {
-      try {
-        const data = fs.readFileSync(configFilePath, 'utf8');
-        const config = JSON.parse(data);
-        res.status(200).json(config);
-      } catch (error) {
-        console.error('Failed to load config:', error);
-        res.status(500).json({ error: 'Failed to load config' });
-      }
-    } else if (type === 'subconscious') {
-      try {
-        const data = fs.readFileSync(subconsciousFilePath, 'utf8');
-        const subconscious: TimestampedPrompt[] = JSON.parse(data);
-        res.status(200).json(subconscious);
-      } catch (error) {
-        console.error('Failed to load subconscious data:', error);
-        res.status(500).json({ error: 'Failed to load subconscious data' });
-      }
-    } else {
-      res.status(400).json({ error: 'Invalid type parameter. Use "config" or "subconscious."' });
-    }
-  } else if (req.method === 'POST') {
-    if (type === 'config') {
-      const { key, value } = req.body;
-      try {
-        // Read the existing config
-        const data = fs.readFileSync(configFilePath, 'utf8');
-        const config = JSON.parse(data);
+  if (!['config', 'subconscious'].includes(type as string)) {
+    return res.status(400).json({ error: 'Invalid type parameter. Use "config" or "subconscious."' });
+  }
 
-        // Update the config with the new key-value pair
-        if (config.hasOwnProperty(key)) {
-          config[key] = value;
-
-          // Write the updated config back to the file
-          fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2));
-          res.status(200).json({ message: 'Config updated successfully' });
-        } else {
-          res.status(400).json({ error: `Config key "${key}" not found` });
-        }
-      } catch (error) {
-        console.error('Failed to update config:', error);
-        res.status(500).json({ error: 'Failed to update config' });
-      }
-    } else if (type === 'subconscious') {
-      const { subconscious } = req.body;
-      try {
-        // Write the updated subconscious data back to the file
-        fs.writeFileSync(subconsciousFilePath, JSON.stringify(subconscious, null, 2));
-        res.status(200).json({ message: 'Subconscious data updated successfully' })
-      } catch (error) {
-        console.error('Failed to update subconscious data:', error);
-        res.status(500).json({ error: 'Failed to update subconscious data' });
-      }
-    } else {
-      res.status(400).json({ error: 'Invalid type parameter. Use "config" or "subconscious."' });
-    }
-  } else {
-    res.setHeader('Allow', ['GET', 'POST']);
-    res.status(405).end(`Method ${req.method} Not Allowed`);
+  switch (req.method) {
+    case 'GET':
+      return handleGetRequest(type as string, res);
+    case 'POST':
+      return handlePostRequest(type as string, req, res);
+    default:
+      res.setHeader('Allow', ['GET', 'POST']);
+      return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }
+
+// Handlers
+const handleGetRequest = (type: string, res: NextApiResponse) => {
+  try {
+    const filePath = type === 'config' ? configFilePath : subconsciousFilePath;
+    const data = readFile(filePath);
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+};
+
+const handlePostRequest = (type: string, req: NextApiRequest, res: NextApiResponse) => {
+  const { body } = req;
+
+  try {
+    if (type === 'config') {
+      updateConfig(body, res);
+    } else {
+      updateSubconscious(body, res);
+    }
+  } catch (error) {
+    res.status(500).json({ error: error });
+  }
+};
+
+// Sub-functions
+const updateConfig = (body: any, res: NextApiResponse) => {
+  const { key, value } = body;
+
+  if (!key || value === undefined) {
+    return res.status(400).json({ error: 'Key and value are required to update the config.' });
+  }
+
+  const config = readFile(configFilePath);
+
+  if (!config.hasOwnProperty(key)) {
+    return res.status(400).json({ error: `Config key "${key}" not found.` });
+  }
+
+  config[key] = value;
+  writeFile(configFilePath, config);
+  res.status(200).json({ message: 'Config updated successfully.' });
+};
+
+const updateSubconscious = (body: any, res: NextApiResponse) => {
+  const { subconscious } = body;
+
+  if (!Array.isArray(subconscious)) {
+    return res.status(400).json({ error: 'Subconscious data must be an array.' });
+  }
+
+  writeFile(subconsciousFilePath, subconscious);
+  res.status(200).json({ message: 'Subconscious data updated successfully.' });
+};

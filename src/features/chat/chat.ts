@@ -124,7 +124,7 @@ export class Chat {
     this.updateAwake();
     this.initialized = true;
 
-    this.initializeSSEConnection();
+    this.initSSE();
   }
 
   public setMessageList(messages: Message[]) {
@@ -357,7 +357,7 @@ export class Chat {
     await this.makeAndHandleStream(messages);
   }
 
-  public initializeSSEConnection() {
+  public initSSE() {
     // Client-side code in a React component or elsewhere
     const eventSource = new EventSource('/api/amicaHandler');
 
