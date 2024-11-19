@@ -1,11 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import fs from 'fs';
 import path from 'path';
-import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 
 // Define file paths
 const configFilePath = path.resolve('config.json');
 const subconsciousFilePath = path.resolve('src/features/amicaLife/subconscious.json');
+const logsFilePath = path.resolve('logs.json');
+
 
 // Utility functions for file operations
 const readFile = (filePath: string): any => {
@@ -29,11 +30,13 @@ const writeFile = (filePath: string, content: any): void => {
 
 // Clear subconscious data on startup
 writeFile(subconsciousFilePath, []);
+writeFile(logsFilePath, []);
+
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const { type } = req.query;
 
-  if (!['config', 'subconscious'].includes(type as string)) {
+  if (!['config', 'subconscious', 'logs'].includes(type as string)) {
     return res.status(400).json({ error: 'Invalid type parameter. Use "config" or "subconscious."' });
   }
 
@@ -51,7 +54,14 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 // Handlers
 const handleGetRequest = (type: string, res: NextApiResponse) => {
   try {
-    const filePath = type === 'config' ? configFilePath : subconsciousFilePath;
+    let filePath;
+    if (type === 'config') {
+      filePath = configFilePath;
+    } else if (type === 'subconscious') {
+      filePath = subconsciousFilePath;
+    } else {
+      filePath = logsFilePath;
+    }
     const data = readFile(filePath);
     res.status(200).json(data);
   } catch (error) {
@@ -65,8 +75,10 @@ const handlePostRequest = (type: string, req: NextApiRequest, res: NextApiRespon
   try {
     if (type === 'config') {
       updateConfig(body, res);
-    } else {
+    } else if (type === 'subconscious') {
       updateSubconscious(body, res);
+    } else {
+      updateLogs(body,res);
     }
   } catch (error) {
     res.status(500).json({ error: error });
@@ -102,3 +114,38 @@ const updateSubconscious = (body: any, res: NextApiResponse) => {
   writeFile(subconsciousFilePath, subconscious);
   res.status(200).json({ message: 'Subconscious data updated successfully.' });
 };
+
+const updateLogs = (body: any, res: NextApiResponse) => {
+  // The body should be an object that contains type, ts, and arguments
+  const { type, ts, arguments: logArguments } = body;
+
+  // Log entry format
+  const logEntry = {
+    type,
+    ts,
+    arguments: logArguments,
+  };
+
+  try {
+    // Read the existing logs from the file
+    let existingLogs = readFile(logsFilePath);
+
+    // If the file is empty or doesn't contain an array, initialize it as an empty array
+    if (!Array.isArray(existingLogs)) {
+      existingLogs = [];
+    }
+
+    // Append the new log entry
+    existingLogs.push(logEntry);
+
+    // Write the updated logs back to the file
+    writeFile(logsFilePath, existingLogs);
+
+    // Send a success response
+    res.status(200).json({ message: 'Logs updated successfully.' });
+  } catch (error) {
+    console.error("Error updating logs:", error);
+    res.status(500).json({ error: 'Failed to update logs.' });
+  }
+};
+

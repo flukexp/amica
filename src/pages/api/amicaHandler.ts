@@ -24,8 +24,11 @@ interface LogEntry {
 
 const logs: LogEntry[] = [];
 const clients: Array<{ res: NextApiResponse }> = [];
-const dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
-dataHandlerUrl.searchParams.append("type", "subconscious");
+let subconsciousUrl = new URL("http://localhost:3000/api/dataHandler");
+subconsciousUrl.searchParams.append("type", "subconscious");
+
+let logsUrl = new URL("http://localhost:3000/api/dataHandler");
+logsUrl.searchParams.append("type", "logs");
 
 // Helper Functions
 const generateSessionId = (sessionId?: string): string =>
@@ -48,7 +51,12 @@ const processNormalChat = async (message: string): Promise<string> =>
   await askLLM(config("system_prompt"), message, null);
 
 const requestMemory = async (): Promise<TimestampedPrompt[]> => {
-  const response = await fetch(dataHandlerUrl);
+  const response = await fetch(subconsciousUrl);
+  return response.json();
+};
+
+const requestLogs = async (): Promise<[]> => {
+  const response = await fetch(logsUrl);
   return response.json();
 };
 
@@ -111,8 +119,8 @@ export default async function handler(
   const currentSessionId = generateSessionId(sessionId);
   const timestamp = new Date().toISOString();
 
-  if (!inputType || !payload) {
-    return sendError(res, currentSessionId, "inputType and payload are required.");
+  if (!inputType) {
+    return sendError(res, currentSessionId, "inputType are required.");
   }
 
   try {
@@ -160,7 +168,7 @@ const processRequest = async (
     case "Memory Request":
       return { response: await requestMemory(), outputType: "Memory Array" };
     case "RPC Webhook":
-      return { response: JSON.stringify(logs), outputType: "Webhook" };
+      return { response: await requestLogs(), outputType: "Webhook" };
     case "Twitter Message":
     case "Brain Message":
       return { response: payload, outputType: "Text" };

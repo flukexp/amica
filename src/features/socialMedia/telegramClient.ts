@@ -33,5 +33,3 @@ class TelegramClient {
 // Export an instance of the TelegramClient class for use
 export const telegramClientInstance = new TelegramClient();
 
-// Example usage:
-// telegramClientInstance.postMessage('Hello, Telegram!');
