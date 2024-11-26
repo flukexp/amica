@@ -65,6 +65,7 @@
   "coqui_apikey": "",
   "coqui_voice_id": "71c6c3eb-98ca-4a05-8d6b-f8c2b5f9f3a3",
   "amica_life_enabled": "true",
+  "reasoning_engine_enabled": "true",
   "min_time_interval_sec": "10",
   "max_time_interval_sec": "20",
   "time_to_sleep_sec": "90",

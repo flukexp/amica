@@ -14,12 +14,14 @@ import { AmicaLifeContext } from '@/features/amicaLife/amicaLifeContext';
 
 export function AmicaLifePage({
     amicaLifeEnabled,
+    reasoningEngineEnabled,
     timeBeforeIdle,
     minTimeInterval,
     maxTimeInterval,
     timeToSleep,
     idleTextPrompt,
     setAmicaLifeEnabled,
+    setReasoningEngineEnabled,
     setTimeBeforeIdle,
     setMinTimeInterval,
     setMaxTimeInterval,
@@ -28,12 +30,14 @@ export function AmicaLifePage({
     setSettingsUpdated,
 }: {
     amicaLifeEnabled: boolean;
+    reasoningEngineEnabled: boolean;
     timeBeforeIdle: number;
     minTimeInterval: number;
     maxTimeInterval: number;
     timeToSleep: number;
     idleTextPrompt: string;
     setAmicaLifeEnabled: (amicaLifeEnabled: boolean) => void;
+    setReasoningEngineEnabled: (reasoningEngineEnabled: boolean) => void;
     setTimeBeforeIdle: (timeBeforeIdle: number) => void;
     setMinTimeInterval: (minTimeInterval: number) => void;
     setMaxTimeInterval: (maxTimeInterval: number) => void;
@@ -96,12 +100,34 @@ export function AmicaLifePage({
                                 setAmicaLifeEnabled(value);
                                 updateConfig("amica_life_enabled", value.toString());
                                 setSettingsUpdated(true);
+
+                                // Turn Reasoning Engine off if amica life off
+                                if (!value) {
+                                    setReasoningEngineEnabled(false);
+                                    updateConfig("reasoning_engine_enabled", "false");
+                                }
                             }}
                         />
                     </FormRow>
                 </li>
                 {amicaLifeEnabled && (
                     <>
+
+                        <li className="py-4">
+                            <FormRow label={`${t("Use")} ${t("Reasoing Engine")}`}>
+                                <SwitchBox
+                                    value={reasoningEngineEnabled}
+                                    label={`${t("Reasoning Engine")} ${t("Enabled")}`}
+                                    // disabled={config("chatbot_backend") === "echo"}
+                                    onChange={(value: boolean) => {
+                                        setReasoningEngineEnabled(value);
+                                        updateConfig("reasoning_engine_enabled", value.toString());
+                                        setSettingsUpdated(true);
+                                    }}
+                                />
+                            </FormRow>
+                        </li>
+
 
                         <li className="py-4">
                             <FormRow label={t("Idle self prompts (leave empty to use default)")}>

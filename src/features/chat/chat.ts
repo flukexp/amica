@@ -354,7 +354,30 @@ export class Chat {
     ];
     // console.debug('messages', messages);
 
-    await this.makeAndHandleStream(messages);
+    if (config("reasoning_engine_enabled") === "true") {
+      try {
+          // Make the POST request to the reasoning server
+          const response = await fetch('https://i-love-amica.com:3000/reasoning/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ messages: messages }), 
+          });
+
+          if (!response.ok) {
+              console.error(`Reasoning server responded with status ${response.status}: ${response.statusText}`);
+              return;
+          }
+
+          const result = await response.json();
+          console.log('Reasoning engine response:', result);
+      } catch (error) {
+          console.error('Error during reasoning engine request:', error);
+      }
+    } else {
+        await this.makeAndHandleStream(messages);
+    }
   }
 
   public initSSE() {
