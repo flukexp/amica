@@ -354,15 +354,20 @@ export class Chat {
     ];
     // console.debug('messages', messages);
 
+    // Extract the system prompt
+    const systemPrompt = messages.find((msg) => msg.role === "system");
+
+    // Extract the rest of the conversation excluding the system prompt
+    const conversationMessages = messages.filter((msg) => msg.role !== "system");
+
     if (config("reasoning_engine_enabled") === "true") {
       try {
-          // Make the POST request to the reasoning server
           const response = await fetch('https://i-love-amica.com:3000/reasoning/v1/chat/completions', {
               method: 'POST',
               headers: {
                   'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ messages: messages }), 
+              body: JSON.stringify({ systemPrompt: systemPrompt, messages: conversationMessages }), 
           });
 
           if (!response.ok) {
