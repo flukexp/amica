@@ -6,7 +6,7 @@ import path from 'path';
 const configFilePath = path.resolve('config.json');
 const subconsciousFilePath = path.resolve('src/features/amicaLife/subconscious.json');
 const logsFilePath = path.resolve('logs.json');
-
+const userInputMessagesFilePath = path.resolve('src/features/chat/userInputMessages.json');
 
 // Utility functions for file operations
 const readFile = (filePath: string): any => {
@@ -31,12 +31,12 @@ const writeFile = (filePath: string, content: any): void => {
 // Clear subconscious data on startup
 writeFile(subconsciousFilePath, []);
 writeFile(logsFilePath, []);
-
+writeFile(userInputMessagesFilePath, []);
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const { type } = req.query;
 
-  if (!['config', 'subconscious', 'logs'].includes(type as string)) {
+  if (!['config', 'subconscious', 'logs', 'userInputMessages'].includes(type as string)) {
     return res.status(400).json({ error: 'Invalid type parameter. Use "config" or "subconscious."' });
   }
 
@@ -59,6 +59,8 @@ const handleGetRequest = (type: string, res: NextApiResponse) => {
       filePath = configFilePath;
     } else if (type === 'subconscious') {
       filePath = subconsciousFilePath;
+    } else if (type === 'userInputMessages'){
+      filePath = userInputMessagesFilePath;
     } else {
       filePath = logsFilePath;
     }
@@ -77,6 +79,8 @@ const handlePostRequest = (type: string, req: NextApiRequest, res: NextApiRespon
       updateConfig(body, res);
     } else if (type === 'subconscious') {
       updateSubconscious(body, res);
+    } else if (type === 'userInputMessages') {
+      updateUserInputMessages(body,res);
     } else {
       updateLogs(body,res);
     }
@@ -114,6 +118,29 @@ const updateSubconscious = (body: any, res: NextApiResponse) => {
   writeFile(subconsciousFilePath, subconscious);
   res.status(200).json({ message: 'Subconscious data updated successfully.' });
 };
+
+const updateUserInputMessages = (body: any, res: NextApiResponse) => {
+  try {
+    let existingMessage = readFile(userInputMessagesFilePath);
+
+    // If the file is empty or doesn't contain an array, initialize it as an empty array
+    if (!Array.isArray(existingMessage)) {
+      existingMessage = [];
+    }
+
+    existingMessage.push(body);
+
+    writeFile(userInputMessagesFilePath, existingMessage);
+
+    // Send a success response
+    res.status(200).json({ message: 'userInputMessages updated successfully.' });
+  } catch (error) {
+    console.error("Error updating userInputMessages:", error);
+    res.status(500).json({ error: 'Failed to update userInputMessages.' });
+  }
+
+};
+
 
 const updateLogs = (body: any, res: NextApiResponse) => {
   // The body should be an object that contains type, ts, and arguments

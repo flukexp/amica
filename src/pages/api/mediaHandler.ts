@@ -3,7 +3,7 @@ import { whispercpp } from '@/features/whispercpp/whispercpp';
 import { askVisionLLM } from '@/utils/askLlm';
 import { TimestampedPrompt } from '@/features/amicaLife/eventHandler';
 import { config as configs} from '@/utils/config';
-import { logs } from './amicaHandler';
+// import { logs } from './amicaHandler';
 
 import { randomBytes } from 'crypto';
 import sharp from 'sharp';
@@ -91,11 +91,11 @@ async function handleRequest(sessionId: string, timestamp: string, fields: any, 
         return sendError(res, sessionId, "Unknown input type.");
     }
 
-    logs.push({ sessionId: sessionId, timestamp, inputType, outputType, response });
+    // logs.push({ sessionId: sessionId, timestamp, inputType, outputType, response });
     res.status(200).json({ sessionId, outputType, response });
   } catch (error) {
     console.error("Handler error:", error);
-    logs.push({ sessionId: sessionId, timestamp, inputType, outputType: "Error", error: String(error) });
+    // logs.push({ sessionId: sessionId, timestamp, inputType, outputType: "Error", error: String(error) });
     return sendError(res, sessionId, "An error occurred while processing the request.", 500);
   }
 }

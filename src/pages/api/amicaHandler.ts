@@ -30,6 +30,9 @@ subconsciousUrl.searchParams.append("type", "subconscious");
 let logsUrl = new URL("http://localhost:3000/api/dataHandler");
 logsUrl.searchParams.append("type", "logs");
 
+let userInputMessagesUrl = new URL("http://localhost:3000/api/dataHandler");
+userInputMessagesUrl.searchParams.append("type", "userInputMessages");
+
 // Helper Functions
 const generateSessionId = (sessionId?: string): string =>
   sessionId || randomBytes(8).toString("hex");
@@ -57,6 +60,11 @@ const requestMemory = async (): Promise<TimestampedPrompt[]> => {
 
 const requestLogs = async (): Promise<[]> => {
   const response = await fetch(logsUrl);
+  return response.json();
+};
+
+const requestUserInputMessages = async (): Promise<[]> => {
+  const response = await fetch(userInputMessagesUrl);
   return response.json();
 };
 
@@ -167,8 +175,10 @@ const processRequest = async (
       return { response: await processNormalChat(payload), outputType: "Complete stream" };
     case "Memory Request":
       return { response: await requestMemory(), outputType: "Memory Array" };
-    case "RPC Webhook":
+    case "RPC Logs":
       return { response: await requestLogs(), outputType: "Webhook" };
+    case "RPC User Input Messages":
+      return { response: await requestUserInputMessages(), outputType: "Webhook" };
     case "Twitter Message":
     case "Brain Message":
       return { response: payload, outputType: "Text" };

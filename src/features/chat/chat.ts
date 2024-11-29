@@ -336,6 +336,14 @@ export class Chat {
     if (!amicaLife) {
       console.log('receiveMessageFromUser', message);
 
+      let dataHandlerUrl = new URL("http://localhost:3000/api/dataHandler");
+      dataHandlerUrl.searchParams.append('type', 'userInputMessages');
+      fetch(dataHandlerUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({message: message}),
+      });
+
       this.amicaLife?.receiveMessageFromUser(message);
 
       if (!/\[.*?\]/.test(message)) {
