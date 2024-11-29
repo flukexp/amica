@@ -20,7 +20,7 @@ import { localXTTSTTS} from "@/features/localXTTS/localXTTS";
 
 import { AmicaLife } from '@/features/amicaLife/amicaLife';
 
-import { config } from "@/utils/config";
+import { config, updateConfig } from "@/utils/config";
 import { cleanTalk } from "@/utils/cleanTalk";
 import { processResponse } from "@/utils/processResponse";
 import { wait } from "@/utils/wait";
@@ -341,7 +341,7 @@ export class Chat {
       fetch(dataHandlerUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({message: message}),
+        body: JSON.stringify({systemPrompt: config("system_prompt"),message: message}),
       });
 
       this.amicaLife?.receiveMessageFromUser(message);
@@ -459,6 +459,11 @@ export class Chat {
                 URL.revokeObjectURL(url);
               });
             }, data); // Stop recording after 10 seconds
+            break;
+
+          case 'systemPrompt':
+            console.log('System Prompt data received:', data);
+            updateConfig("system_prompt",data);
             break;
 
           default:

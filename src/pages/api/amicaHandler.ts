@@ -68,6 +68,12 @@ const requestUserInputMessages = async (): Promise<[]> => {
   return response.json();
 };
 
+const updateSystemPrompt = async (payload: any): Promise<any> => {
+  const { prompt } = payload;
+  let response = sendToClients({ type: "systemPrompt", data: prompt });
+  return response;
+};
+
 const triggerAmicaActions = async (payload: any): Promise<any> => {
   const { text, socialMedia, playback, reprocess, animation } = payload;
   let response;
@@ -179,6 +185,8 @@ const processRequest = async (
       return { response: await requestLogs(), outputType: "Webhook" };
     case "RPC User Input Messages":
       return { response: await requestUserInputMessages(), outputType: "Webhook" };
+    case "Update System Prompt":
+      return { response: await updateSystemPrompt(payload), outputType: "Updated system prompt" };
     case "Twitter Message":
     case "Brain Message":
       return { response: payload, outputType: "Text" };
