@@ -21,6 +21,7 @@ import {
   VideoCameraIcon,
   VideoCameraSlashIcon,
   WrenchScrewdriverIcon,
+  AcademicCapIcon,
 } from "@heroicons/react/24/outline";
 import { IconBrain } from '@tabler/icons-react';
 
@@ -52,6 +53,7 @@ import { ChatModeText } from "@/components/chatModeText";
 
 import { VerticalSwitchBox } from "@/components/switchBox"
 import { TimestampedPrompt } from "@/features/amicaLife/eventHandler";
+import { Moshi } from "@/features/moshi/moshi";
 
 const m_plus_2 = M_PLUS_2({
   variable: "--font-m-plus-2",
@@ -91,6 +93,8 @@ export default function Home() {
   const [showDebug, setShowDebug] = useState(false);
   const [showChatMode, setShowChatMode] = useState(false);
   const [showSubconciousText, setShowSubconciousText] = useState(false);
+  const [showMoshi, setShowMoshi] = useState(false);
+
 
   // null indicates havent loaded config yet
   const [muted, setMuted] = useState<boolean|null>(null);
@@ -198,6 +202,7 @@ export default function Home() {
 
       { webcamEnabled && <EmbeddedWebcam setWebcamEnabled={setWebcamEnabled} /> }
       { showDebug && <DebugPane onClickClose={() => setShowDebug(false) }/> }
+      { showMoshi && <Moshi setAssistantText={setAssistantMessage} setShownMessage={setShownMessage}/>  }
 
       <VrmStoreProvider>
         <VrmViewer chatMode={showChatMode}/>
@@ -208,7 +213,7 @@ export default function Home() {
         )}
       </VrmStoreProvider>
       
-      <MessageInputContainer isChatProcessing={chatProcessing} />
+      {!showMoshi && <MessageInputContainer isChatProcessing={chatProcessing} />}
 
       {/* main menu */}
       <div className="absolute z-10 m-2">
@@ -365,12 +370,31 @@ export default function Home() {
             </div>*/}
 
             <div className="flex flex-row items-center space-x-2">
+                { showMoshi ? (
+                  <AcademicCapIcon
+                    className="h-7 w-7 text-white opacity-100 hover:opacity-50 active:opacity-100 hover:cursor-pointer"
+                    aria-hidden="true"
+                    onClick={() => setShowMoshi(false)}
+                  />
+                ) : (
+                  <AcademicCapIcon
+                    className="h-7 w-7 text-white opacity-50 hover:opacity-100 active:opacity-100 hover:cursor-pointer"
+                    aria-hidden="true"
+                    onClick={() => setShowMoshi(true)}
+                  />
+                )}
+                <span className="text-white hidden">Moshi</span> 
+            </div>
+
+            <div className="flex flex-row items-center space-x-2">
               <VerticalSwitchBox
                   value={showChatMode}
                   label={""}
                   onChange={toggleChatMode}
                 />
             </div>
+
+            
             
           </div>
         </div>    

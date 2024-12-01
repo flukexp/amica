@@ -17,7 +17,7 @@ export class Model {
   public emoteController?: EmoteController;
 
   private _lookAtTargetParent: THREE.Object3D;
-  private _lipSync?: LipSync;
+  public _lipSync?: LipSync;
 
   public _currentAction?: THREE.AnimationAction;
 
@@ -203,8 +203,11 @@ export class Model {
   /**
    * 音声を再生し、リップシンクを行う
    */
-  public async speak(buffer: ArrayBuffer, screenplay: Screenplay) {
-    this.emoteController?.playEmotion(screenplay.expression);
+  public async speak(buffer: ArrayBuffer, screenplay: Screenplay | null) {
+    if (screenplay !== null) {
+      this.emoteController?.playEmotion(screenplay.expression)
+    }
+    
     await new Promise((resolve) => {
       this._lipSync?.playFromArrayBuffer(buffer, () => {
         resolve(true);
